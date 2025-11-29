@@ -4,7 +4,7 @@
   "description": "Commits all changes with a short, human commit message in present tense, imperative mood (e.g., \"add yaml parser\", \"fix diff bug\") after completing a task.",
   "version": "1",
   "when": {
-    "type": "agentEnd"
+    "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
