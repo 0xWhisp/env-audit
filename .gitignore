@@ -1,0 +1,28 @@
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+env-audit
+
+# Logs
+*.log
+
+# Test coverage
+*.out
+coverage.html
+
+# Vendor directory
+vendor/
+
+# IDE and OS files
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+dist/
