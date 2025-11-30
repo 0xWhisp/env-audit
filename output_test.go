@@ -56,3 +56,25 @@ func TestProperty_SummaryIncludesAllIssues(t *testing.T) {
 
 	properties.TestingRun(t)
 }
+
+
+func TestRedact(t *testing.T) {
+	result := Redact("secret_value")
+	if result != "[REDACTED]" {
+		t.Errorf("expected [REDACTED], got %s", result)
+	}
+}
+
+func TestFormatSummary_NilResult(t *testing.T) {
+	result := FormatSummary(nil)
+	if !strings.Contains(result, "No issues found") {
+		t.Error("nil result should show no issues")
+	}
+}
+
+func TestFormatSummary_EmptyIssues(t *testing.T) {
+	result := FormatSummary(&ScanResult{Issues: []Issue{}})
+	if !strings.Contains(result, "No issues found") {
+		t.Error("empty issues should show no issues")
+	}
+}

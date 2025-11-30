@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/leanovate/gopter"
@@ -253,5 +254,53 @@ func TestParseArgs_HelpFlag(t *testing.T) {
 	}
 	if stdout.Len() == 0 {
 		t.Error("help flag should produce output")
+	}
+}
+
+
+func TestRun_DumpMode(t *testing.T) {
+	tmpfile, _ := os.CreateTemp("", "test*.env")
+	defer os.Remove(tmpfile.Name())
+	tmpfile.WriteString("APP=test\n")
+	tmpfile.Close()
+
+	var stdout, stderr bytes.Buffer
+	exitCode := run([]string{"-f", tmpfile.Name(), "-d"}, &stdout, &stderr)
+
+	if exitCode != 0 {
+		t.Errorf("expected exit 0, got %d", exitCode)
+	}
+	if !strings.Contains(stdout.String(), "APP=test") {
+		t.Error("dump should contain APP=test")
+	}
+}
+
+func TestRun_NoFile(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	// Run without file flag uses os.Environ - just verify it doesn't crash
+	exitCode := run([]string{}, &stdout, &stderr)
+	if exitCode == 2 {
+		t.Error("should not be fatal error")
+	}
+}
+
+func TestParseCommaSeparated_Empty(t *testing.T) {
+	result := parseCommaSeparated("")
+	if result != nil {
+		t.Errorf("expected nil, got %v", result)
+	}
+}
+
+func TestTrimSpace_AllSpaces(t *testing.T) {
+	result := trimSpace("   ")
+	if result != "" {
+		t.Errorf("expected empty, got %q", result)
+	}
+}
+
+func TestTrimSpace_Tabs(t *testing.T) {
+	result := trimSpace("\t\tvalue\t\t")
+	if result != "value" {
+		t.Errorf("expected 'value', got %q", result)
 	}
 }

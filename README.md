@@ -1,51 +1,32 @@
 # env-audit
 
-[![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/Tests-27%20passed-brightgreen)](https://github.com/yourusername/env-audit/actions)
-[![Build](https://img.shields.io/badge/Build-passing-brightgreen)]()
+[![Go Report Card](https://goreportcard.com/badge/github.com/0xWhisp/env-audit)](https://goreportcard.com/report/github.com/0xWhisp/env-audit)
+[![Coverage Status](https://coveralls.io/repos/github/0xWhisp/env-audit/badge.svg?branch=master)](https://coveralls.io/github/0xWhisp/env-audit?branch=master)
 
-A minimal, production-grade CLI tool that scans environment variables and `.env` files for common misconfigurations. Identifies security risks and configuration issues without exposing sensitive values.
+Scan environment variables and `.env` files for misconfigurations. Catches empty values, missing required vars, and flags sensitive keys—without ever exposing secrets.
 
-## Features
+## Why?
 
-- **Empty Value Detection** - Find environment variables with empty string values
-- **Missing Required Variables** - Verify required variables are present
-- **Sensitive Key Detection** - Flag keys matching patterns like `SECRET`, `PASSWORD`, `TOKEN`, `API_KEY`, `CREDENTIAL`, `PRIVATE`, `AUTH`
-- **`.env` File Parsing** - Parse and validate configuration files
-- **Duplicate Key Detection** - Identify duplicate definitions in config files
-- **Value Redaction** - Never exposes sensitive values in output
-- **CI/CD Integration** - Exit codes designed for pipeline integration
+Misconfigured env vars break deployments. This tool catches issues before they hit production:
 
-## Installation
+- Empty `DATABASE_URL` that slipped through
+- Missing `API_KEY` your app expects
+- Sensitive keys that shouldn't be logged
 
-### From Source
+## Install
 
 ```bash
-go install github.com/yourusername/env-audit@latest
+go install github.com/0xWhisp/env-audit@latest
 ```
 
-### Build Locally
+Or build from source:
 
 ```bash
-git clone https://github.com/yourusername/env-audit.git
+git clone https://github.com/0xWhisp/env-audit.git
 cd env-audit
 go build -o env-audit .
-```
-
-### Cross-Platform Binaries
-
-Build for multiple platforms:
-
-```bash
-# Linux
-GOOS=linux GOARCH=amd64 go build -o env-audit-linux .
-
-# macOS
-GOOS=darwin GOARCH=amd64 go build -o env-audit-darwin .
-
-# Windows
-GOOS=windows GOARCH=amd64 go build -o env-audit.exe .
 ```
 
 ## Usage
@@ -54,42 +35,41 @@ GOOS=windows GOARCH=amd64 go build -o env-audit.exe .
 # Scan current environment
 env-audit
 
-# Scan with required variables
+# Check required vars exist
 env-audit --required DATABASE_URL,API_KEY,SECRET_TOKEN
 
 # Scan a .env file
 env-audit --file .env
 
-# Dump parsed config (with redaction)
+# Dump config (secrets redacted)
 env-audit --dump
 
-# Combine options
-env-audit --file .env --required DATABASE_URL,REDIS_HOST --dump
-
-# Show help
-env-audit --help
+# Combine flags
+env-audit --file .env.production --required DATABASE_URL -d
 ```
 
-### Options
+### Flags
 
 | Flag | Short | Description |
 |------|-------|-------------|
-| `--file` | `-f` | Path to `.env` file to scan |
-| `--required` | `-r` | Comma-separated list of required variables |
-| `--dump` | `-d` | Output parsed configuration (with redaction) |
-| `--help` | `-h` | Show help message |
+| `--file` | `-f` | Path to `.env` file |
+| `--required` | `-r` | Comma-separated required vars |
+| `--dump` | `-d` | Print config with redacted secrets |
+| `--help` | `-h` | Show help |
 
 ### Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | No risks found |
-| 1 | Risks detected |
-| 2 | Fatal error (invalid arguments, file not found) |
+| 0 | Clean |
+| 1 | Issues found |
+| 2 | Fatal error |
 
-## Example Output
+## Example
 
 ```
+$ env-audit --file .env --required API_SECRET
+
 env-audit scan results
 ======================
 
@@ -108,92 +88,38 @@ Sensitive Keys Detected (3):
 Summary: 6 issues found
 ```
 
-### Dump Mode Output
+## CI/CD
 
-```
-DATABASE_URL=
-REDIS_HOST=
-AWS_SECRET_KEY=[REDACTED]
-DATABASE_PASSWORD=[REDACTED]
-JWT_TOKEN=[REDACTED]
-APP_NAME=myapp
-DEBUG=true
-```
-
-## CI/CD Integration
-
-### GitHub Actions
-
+GitHub Actions:
 ```yaml
-- name: Audit Environment
+- name: Audit env
   run: |
-    go install github.com/yourusername/env-audit@latest
+    go install github.com/0xWhisp/env-audit@latest
     env-audit --required DATABASE_URL,API_KEY
 ```
 
-### GitLab CI
-
+GitLab CI:
 ```yaml
 audit:
   script:
-    - go install github.com/yourusername/env-audit@latest
+    - go install github.com/0xWhisp/env-audit@latest
     - env-audit --file .env --required DATABASE_URL
 ```
 
-## Testing
+## Sensitive Key Patterns
 
-The project includes comprehensive test coverage with both unit tests and property-based tests.
+Keys matching these patterns (case-insensitive) are flagged and redacted:
 
-```bash
-# Run all tests
-go test -v ./...
-
-# Run with coverage
-go test -cover ./...
-```
-
-### Test Summary
-
-| Category | Tests | Status |
-|----------|-------|--------|
-| Property-Based Tests | 9 | ✅ Passed |
-| Unit Tests | 18 | ✅ Passed |
-| **Total** | **27** | ✅ **All Passed** |
-
-Property-based tests run 100 iterations each, validating correctness properties including:
-- Empty value detection completeness
-- Missing required detection completeness
-- Sensitive key pattern matching
-- Sensitive value redaction
-- `.env` parsing round-trip consistency
-- Duplicate key detection
-- Exit code correctness
-
-## Architecture
-
-```
-env-audit/
-├── main.go      # CLI entry point, argument parsing
-├── scanner.go   # Coordinates checks, aggregates results
-├── checks.go    # Audit rules (empty, missing, sensitive)
-├── parser.go    # .env file parsing and formatting
-├── output.go    # Summary formatting, redaction
-└── env.go       # Environment variable reader
-```
+`SECRET` `PASSWORD` `TOKEN` `API_KEY` `APIKEY` `*KEY` `CREDENTIAL` `PRIVATE` `AUTH`
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for security policy and reporting vulnerabilities.
+See [SECURITY.md](SECURITY.md).
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Related Projects
-
-- [godotenv](https://github.com/joho/godotenv) - Go port of Ruby dotenv
-- [envconfig](https://github.com/kelseyhightower/envconfig) - Go library for managing configuration data from environment variables
+MIT

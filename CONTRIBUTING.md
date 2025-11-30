@@ -1,148 +1,60 @@
-# Contributing to env-audit
+# Contributing
 
-Thank you for your interest in contributing to env-audit! This document provides guidelines and instructions for contributing.
-
-## Getting Started
-
-1. Fork the repository
-2. Clone your fork:
-   ```bash
-   git clone https://github.com/yourusername/env-audit.git
-   cd env-audit
-   ```
-3. Create a feature branch:
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-
-## Development Requirements
-
-- Go 1.21 or higher
-- No external runtime dependencies required
-
-## Project Structure
-
-```
-env-audit/
-├── main.go          # CLI entry point, argument parsing
-├── main_test.go     # CLI tests
-├── scanner.go       # Coordinates checks, aggregates results
-├── checks.go        # Audit rules (empty, missing, sensitive)
-├── checks_test.go   # Audit rule tests
-├── parser.go        # .env file parsing and formatting
-├── parser_test.go   # Parser tests
-├── output.go        # Summary formatting, redaction
-├── output_test.go   # Output tests
-└── env.go           # Environment variable reader
-```
-
-## Development Workflow
-
-### Running Tests
+## Setup
 
 ```bash
-# Run all tests
+git clone https://github.com/0xWhisp/env-audit.git
+cd env-audit
+go test ./...
+```
+
+Requires Go 1.21+.
+
+## Structure
+
+```
+main.go      # CLI entry, args
+scanner.go   # Orchestrates checks
+checks.go    # Audit logic
+parser.go    # .env parsing
+output.go    # Formatting, redaction
+env.go       # Reads os.Environ()
+```
+
+## Workflow
+
+```bash
+# Test
 go test -v ./...
 
-# Run with coverage
+# Coverage
 go test -cover ./...
 
-# Run specific test
-go test -v -run TestCheckEmpty ./...
-```
-
-### Building
-
-```bash
-# Build for current platform
+# Build
 go build -o env-audit .
-
-# Cross-compile
-GOOS=linux GOARCH=amd64 go build -o env-audit-linux .
-GOOS=darwin GOARCH=amd64 go build -o env-audit-darwin .
-GOOS=windows GOARCH=amd64 go build -o env-audit.exe .
 ```
 
-### Code Style
+## Commits
 
-- Follow Go idioms and conventions
-- Use `gofmt` for formatting
-- Keep functions small and focused
-- Write clear, descriptive names
-- Add comments for exported functions
+- Present tense: "Add feature" not "Added feature"
+- One change per commit
+- Keep it short
 
-## Submitting Changes
+## PRs
 
-1. Ensure all tests pass:
-   ```bash
-   go test -v ./...
-   ```
+- Tests must pass
+- One logical change
+- Update docs if needed
 
-2. Commit your changes with a clear message:
-   ```bash
-   git commit -m 'Add amazing feature'
-   ```
-   
-   Commit message guidelines:
-   - Use present tense ("Add feature" not "Added feature")
-   - Keep the first line under 50 characters
-   - One logical change per commit
+## Tests
 
-3. Push to your branch:
-   ```bash
-   git push origin feature/amazing-feature
-   ```
+Property-based tests use `github.com/leanovate/gopter` with 100+ iterations. Unit tests cover edge cases.
 
-4. Open a Pull Request
-
-## Pull Request Guidelines
-
-- Provide a clear description of the changes
-- Reference any related issues
-- Ensure CI checks pass
-- Keep PRs focused on a single change
-- Update documentation if needed
-
-## Testing Guidelines
-
-### Unit Tests
-- Test specific examples and edge cases
-- Cover error conditions
-- Use descriptive test names
-
-### Property-Based Tests
-- Use `github.com/leanovate/gopter` for property tests
-- Run minimum 100 iterations
-- Tag tests with the correctness property they validate:
-  ```go
-  // Feature: env-audit, Property 1: Empty value detection completeness
-  ```
-
-## Security Considerations
+## Security
 
 Before submitting:
+- No secrets in test fixtures
+- Redaction logic intact
+- Tests don't leak real values
 
-- [ ] No sensitive values in test fixtures
-- [ ] No hardcoded credentials
-- [ ] Redaction logic preserved for all output paths
-- [ ] Tests pass without exposing real secrets
-
-See [SECURITY.md](SECURITY.md) for the full security policy.
-
-## Reporting Issues
-
-- Use GitHub Issues for bug reports and feature requests
-- Include steps to reproduce for bugs
-- Check existing issues before creating new ones
-
-## Code of Conduct
-
-- Be respectful and inclusive
-- Focus on constructive feedback
-- Help others learn and grow
-
-## Questions?
-
-Feel free to open an issue for any questions about contributing.
-
-Thank you for contributing to env-audit!
+See [SECURITY.md](SECURITY.md).
