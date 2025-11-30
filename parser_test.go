@@ -10,6 +10,126 @@ import (
 	"github.com/leanovate/gopter/prop"
 )
 
+// Unit tests for parser.go edge cases
+// Requirements: 3.2, 3.3
+
+func TestParseEnvFile_EmptyFile(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "test*.env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+	tmpfile.Close()
+
+	result, err := ParseEnvFile(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(result.Entries))
+	}
+	if len(result.Duplicates) != 0 {
+		t.Errorf("expected 0 duplicates, got %d", len(result.Duplicates))
+	}
+}
+
+func TestParseEnvFile_CommentsOnly(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "test*.env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	content := "# This is a comment\n# Another comment\n  # Indented comment"
+	if _, err := tmpfile.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+
+	result, err := ParseEnvFile(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Entries) != 0 {
+		t.Errorf("expected 0 entries, got %d", len(result.Entries))
+	}
+}
+
+func TestParseEnvFile_MalformedLines(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "test*.env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	content := "VALID=value\nmalformed_no_equals\nANOTHER=test"
+	if _, err := tmpfile.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+
+	result, err := ParseEnvFile(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Entries) != 2 {
+		t.Errorf("expected 2 entries, got %d", len(result.Entries))
+	}
+	if result.Entries["VALID"] != "value" {
+		t.Errorf("expected VALID=value, got %s", result.Entries["VALID"])
+	}
+	if result.Entries["ANOTHER"] != "test" {
+		t.Errorf("expected ANOTHER=test, got %s", result.Entries["ANOTHER"])
+	}
+}
+
+func TestParseEnvFile_QuotedValues(t *testing.T) {
+	tmpfile, err := os.CreateTemp("", "test*.env")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.Remove(tmpfile.Name())
+
+	content := `DOUBLE="double quoted"
+SINGLE='single quoted'
+UNQUOTED=no quotes
+EMPTY_DOUBLE=""
+EMPTY_SINGLE=''`
+	if _, err := tmpfile.WriteString(content); err != nil {
+		t.Fatal(err)
+	}
+	tmpfile.Close()
+
+	result, err := ParseEnvFile(tmpfile.Name())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	tests := []struct {
+		key      string
+		expected string
+	}{
+		{"DOUBLE", "double quoted"},
+		{"SINGLE", "single quoted"},
+		{"UNQUOTED", "no quotes"},
+		{"EMPTY_DOUBLE", ""},
+		{"EMPTY_SINGLE", ""},
+	}
+
+	for _, tc := range tests {
+		if result.Entries[tc.key] != tc.expected {
+			t.Errorf("key %s: expected %q, got %q", tc.key, tc.expected, result.Entries[tc.key])
+		}
+	}
+}
+
+func TestParseEnvFile_FileNotFound(t *testing.T) {
+	_, err := ParseEnvFile("/nonexistent/path/file.env")
+	if err == nil {
+		t.Error("expected error for nonexistent file")
+	}
+}
+
 // **Feature: env-audit, Property 6: Duplicate key detection**
 // **Validates: Requirements 3.4**
 // For any .env content containing duplicate key definitions, ParseEnvFile SHALL

@@ -21,6 +21,7 @@ vendor/
 .DS_Store
 .idea/
 .vscode/
+.kiro/
 *.swp
 *.swo
 
