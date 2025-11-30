@@ -3,7 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go&logoColor=white)](https://go.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/0xWhisp/env-audit)](https://goreportcard.com/report/github.com/0xWhisp/env-audit)
-[![Coverage Status](https://coveralls.io/repos/github/0xWhisp/env-audit/badge.svg?branch=master)](https://coveralls.io/github/0xWhisp/env-audit?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/0xWhisp/env-audit/badge.svg?branch=master)](https://coveralls.io/github/0xWhisp/env-audit?branch=main)
 
 Scan environment variables and `.env` files for misconfigurations. Catches empty values, missing required vars, and flags sensitive keys—without ever exposing secrets.
 
