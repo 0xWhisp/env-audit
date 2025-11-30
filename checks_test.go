@@ -159,3 +159,137 @@ func TestProperty_MissingRequiredDetection(t *testing.T) {
 
 	properties.TestingRun(t)
 }
+
+
+// Unit tests for edge cases
+// Requirements: 1.1, 1.2, 2.1
+
+func TestCheckEmpty_EmptyInput(t *testing.T) {
+	issues := CheckEmpty(map[string]string{})
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues for empty input, got %d", len(issues))
+	}
+}
+
+func TestCheckEmpty_SingleEntry(t *testing.T) {
+	// Single empty entry
+	issues := CheckEmpty(map[string]string{"FOO": ""})
+	if len(issues) != 1 || issues[0].Key != "FOO" {
+		t.Errorf("expected 1 issue for FOO, got %v", issues)
+	}
+
+	// Single non-empty entry
+	issues = CheckEmpty(map[string]string{"FOO": "bar"})
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues for non-empty value, got %d", len(issues))
+	}
+}
+
+func TestCheckEmpty_SpecialCharacters(t *testing.T) {
+	env := map[string]string{
+		"MY_VAR-1":    "",
+		"VAR.NAME":    "",
+		"VAR@SPECIAL": "value",
+	}
+	issues := CheckEmpty(env)
+	if len(issues) != 2 {
+		t.Errorf("expected 2 issues, got %d", len(issues))
+	}
+}
+
+func TestCheckMissing_EmptyInput(t *testing.T) {
+	// Empty env, empty required
+	issues := CheckMissing(map[string]string{}, []string{})
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues, got %d", len(issues))
+	}
+
+	// Empty env, one required
+	issues = CheckMissing(map[string]string{}, []string{"FOO"})
+	if len(issues) != 1 || issues[0].Key != "FOO" {
+		t.Errorf("expected 1 issue for FOO, got %v", issues)
+	}
+}
+
+func TestCheckMissing_SingleEntry(t *testing.T) {
+	env := map[string]string{"FOO": "bar"}
+
+	// Required key exists
+	issues := CheckMissing(env, []string{"FOO"})
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues when key exists, got %d", len(issues))
+	}
+
+	// Required key missing
+	issues = CheckMissing(env, []string{"BAR"})
+	if len(issues) != 1 || issues[0].Key != "BAR" {
+		t.Errorf("expected 1 issue for BAR, got %v", issues)
+	}
+}
+
+func TestCheckMissing_SpecialCharacters(t *testing.T) {
+	env := map[string]string{"MY_VAR-1": "val"}
+	issues := CheckMissing(env, []string{"MY_VAR-1", "VAR.NAME"})
+	if len(issues) != 1 || issues[0].Key != "VAR.NAME" {
+		t.Errorf("expected 1 issue for VAR.NAME, got %v", issues)
+	}
+}
+
+func TestCheckSensitive_EmptyInput(t *testing.T) {
+	issues := CheckSensitive(map[string]string{})
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues for empty input, got %d", len(issues))
+	}
+}
+
+func TestCheckSensitive_SingleEntry(t *testing.T) {
+	// Sensitive key
+	issues := CheckSensitive(map[string]string{"API_KEY": "secret"})
+	if len(issues) != 1 || issues[0].Key != "API_KEY" {
+		t.Errorf("expected 1 issue for API_KEY, got %v", issues)
+	}
+
+	// Non-sensitive key
+	issues = CheckSensitive(map[string]string{"APP_NAME": "myapp"})
+	if len(issues) != 0 {
+		t.Errorf("expected 0 issues for non-sensitive key, got %d", len(issues))
+	}
+}
+
+func TestCheckSensitive_SpecialCharacters(t *testing.T) {
+	env := map[string]string{
+		"MY-SECRET-VAR": "val",
+		"VAR.PASSWORD":  "val",
+		"NORMAL@VAR":    "val",
+	}
+	issues := CheckSensitive(env)
+	if len(issues) != 2 {
+		t.Errorf("expected 2 sensitive issues, got %d", len(issues))
+	}
+}
+
+func TestIsSensitiveKey_EdgeCases(t *testing.T) {
+	tests := []struct {
+		key      string
+		expected bool
+	}{
+		{"", false},
+		{"KEY", true},           // KEY suffix
+		{"MYKEY", true},         // KEY suffix
+		{"KEYRING", false},      // KEY not as suffix
+		{"secret", true},        // lowercase
+		{"PaSsWoRd", true},      // mixed case
+		{"MY_API_KEY_VAR", true}, // API_KEY in middle
+		{"AUTHENTICATE", true},  // contains AUTH
+		{"AUTHOR", true},        // contains AUTH
+		{"PRIVATE_DATA", true},  // contains PRIVATE
+		{"CREDENTIAL_ID", true}, // contains CREDENTIAL
+	}
+
+	for _, tc := range tests {
+		got := IsSensitiveKey(tc.key)
+		if got != tc.expected {
+			t.Errorf("IsSensitiveKey(%q) = %v, want %v", tc.key, got, tc.expected)
+		}
+	}
+}

@@ -15,8 +15,49 @@ type Config struct {
 }
 
 func main() {
-	// TODO: Implement in task 7
-	os.Exit(0)
+	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
+}
+
+// run executes the main logic and returns the exit code
+func run(args []string, stdout, stderr io.Writer) int {
+	cfg, err := parseArgs(args)
+	if err != nil {
+		fmt.Fprintln(stderr, "Error:", err)
+		return 2
+	}
+
+	if cfg.Help {
+		printUsage(stdout)
+		return 0
+	}
+
+	var env map[string]string
+	var duplicates []string
+
+	if cfg.FilePath != "" {
+		result, err := ParseEnvFile(cfg.FilePath)
+		if err != nil {
+			fmt.Fprintln(stderr, "Error:", err)
+			return 2
+		}
+		env = result.Entries
+		duplicates = result.Duplicates
+	} else {
+		env = ReadEnv()
+	}
+
+	if cfg.DumpMode {
+		fmt.Fprintln(stdout, FormatConfig(env))
+		return 0
+	}
+
+	scanResult := Scan(env, cfg.Required, duplicates)
+	fmt.Fprint(stdout, FormatSummary(scanResult))
+
+	if scanResult.HasRisks {
+		return 1
+	}
+	return 0
 }
 
 func parseArgs(args []string) (*Config, error) {
@@ -90,4 +131,15 @@ func trimSpace(s string) string {
 
 func printUsage(w io.Writer) {
 	fmt.Fprintln(w, "env-audit [options]")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Options:")
+	fmt.Fprintln(w, "  --file, -f <path>     Path to .env file to scan (optional)")
+	fmt.Fprintln(w, "  --required, -r <vars> Comma-separated list of required variables")
+	fmt.Fprintln(w, "  --dump, -d            Output parsed configuration (with redaction)")
+	fmt.Fprintln(w, "  --help, -h            Show this help message")
+	fmt.Fprintln(w, "")
+	fmt.Fprintln(w, "Exit Codes:")
+	fmt.Fprintln(w, "  0  No risks found")
+	fmt.Fprintln(w, "  1  Risks detected")
+	fmt.Fprintln(w, "  2  Fatal error (invalid arguments, file not found)")
 }
