@@ -4,13 +4,14 @@ import "fmt"
 
 // Config holds parsed CLI arguments
 type Config struct {
-	FilePath   string   // --file path to .env file
-	Required   []string // --required comma-separated required vars
-	DumpMode   bool     // --dump output parsed config
-	JSONOutput bool     // --json output results as JSON
-	Quiet      bool     // --quiet/-q suppress stdout output
-	Strict     bool     // --strict treat warnings as errors
-	Help       bool     // --help show usage
+	FilePath    string   // --file path to .env file
+	Required    []string // --required comma-separated required vars
+	ExampleFile string   // --example path to .env.example file
+	DumpMode    bool     // --dump output parsed config
+	JSONOutput  bool     // --json output results as JSON
+	Quiet       bool     // --quiet/-q suppress stdout output
+	Strict      bool     // --strict treat warnings as errors
+	Help        bool     // --help show usage
 }
 
 // ParseArgs parses command line arguments into Config
@@ -42,6 +43,12 @@ func ParseArgs(args []string) (*Config, error) {
 			}
 			i++
 			cfg.Required = parseCommaSeparated(args[i])
+		case "--example", "-e":
+			if i+1 >= len(args) {
+				return nil, fmt.Errorf("missing value for %s", arg)
+			}
+			i++
+			cfg.ExampleFile = args[i]
 		default:
 			return nil, fmt.Errorf("unknown argument: %s", arg)
 		}

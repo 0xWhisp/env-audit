@@ -365,6 +365,72 @@ func TestRun_QuietMode_DumpMode(t *testing.T) {
 	}
 }
 
+// **Feature: env-audit-v2, Property 4: Strict mode escalation**
+// **Validates: Requirements 4.1, 4.2**
+// For any environment with warning-level issues (empty values), when --strict flag
+// is used, exit code SHALL be 1. Without strict, warnings don't cause exit 1.
+func TestProperty_StrictModeEscalation(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+	properties := gopter.NewProperties(parameters)
+
+	// Generator for valid env key (alphanumeric, non-empty, non-sensitive)
+	genKey := gen.AlphaString().SuchThat(func(s string) bool {
+		return len(s) > 0 && !audit.IsSensitiveKey(s)
+	})
+
+	// Generator for env map with empty values (warnings)
+	genEnvWithEmptyValues := gen.MapOf(genKey, gen.Const("")).SuchThat(func(m map[string]string) bool {
+		return len(m) > 0
+	})
+
+	// Property: With --strict flag, empty values (warnings) cause exit code 1
+	properties.Property("strict mode: warnings cause exit 1", prop.ForAll(
+		func(env map[string]string) bool {
+			tmpDir := t.TempDir()
+			envFile := filepath.Join(tmpDir, ".env")
+			content := ""
+			for key := range env {
+				content += key + "=\n" // Empty value creates warning
+			}
+			if err := os.WriteFile(envFile, []byte(content), 0644); err != nil {
+				return false
+			}
+
+			var stdout, stderr bytes.Buffer
+			exitCode := Run([]string{"-f", envFile, "--strict"}, &stdout, &stderr)
+
+			// In strict mode, warnings should cause exit code 1
+			return exitCode == 1
+		},
+		genEnvWithEmptyValues,
+	))
+
+	// Property: Without --strict flag, empty values (warnings) don't cause exit code 1
+	properties.Property("non-strict mode: warnings don't cause exit 1", prop.ForAll(
+		func(env map[string]string) bool {
+			tmpDir := t.TempDir()
+			envFile := filepath.Join(tmpDir, ".env")
+			content := ""
+			for key := range env {
+				content += key + "=\n" // Empty value creates warning
+			}
+			if err := os.WriteFile(envFile, []byte(content), 0644); err != nil {
+				return false
+			}
+
+			var stdout, stderr bytes.Buffer
+			exitCode := Run([]string{"-f", envFile}, &stdout, &stderr)
+
+			// Without strict mode, warnings should NOT cause exit code 1
+			return exitCode == 0
+		},
+		genEnvWithEmptyValues,
+	))
+
+	properties.TestingRun(t)
+}
+
 // **Feature: env-audit-v2, Property 3: Quiet mode error output**
 // **Validates: Requirements 3.3**
 // For any error condition with --quiet flag, stderr SHALL contain the error message.

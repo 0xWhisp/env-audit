@@ -12,6 +12,8 @@ type ScanOptions struct {
 	Required   []string
 	Ignore     []string
 	Duplicates []string
+	Missing    []string // keys missing from target (from example comparison)
+	Extra      []string // keys extra in target (from example comparison)
 	CheckLeaks bool
 	Strict     bool
 }
@@ -49,6 +51,30 @@ func Scan(env map[string]string, opts *ScanOptions) *Result {
 			Type:    IssueDuplicate,
 			Key:     key,
 			Message: "duplicate key definition",
+		})
+	}
+
+	// Add missing issues from example comparison
+	for _, key := range opts.Missing {
+		if ignoreSet[key] {
+			continue
+		}
+		issues = append(issues, Issue{
+			Type:    IssueMissing,
+			Key:     key,
+			Message: "variable missing from example",
+		})
+	}
+
+	// Add extra issues from example comparison
+	for _, key := range opts.Extra {
+		if ignoreSet[key] {
+			continue
+		}
+		issues = append(issues, Issue{
+			Type:    IssueExtra,
+			Key:     key,
+			Message: "variable not in example file",
 		})
 	}
 

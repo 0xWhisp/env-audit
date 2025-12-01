@@ -99,12 +99,13 @@ func FormatSummary(result *audit.Result) string {
 	sb.WriteString("======================\n")
 
 	// Output each group in order
-	typeOrder := []audit.IssueType{audit.IssueEmpty, audit.IssueMissing, audit.IssueSensitive, audit.IssueDuplicate}
+	typeOrder := []audit.IssueType{audit.IssueEmpty, audit.IssueMissing, audit.IssueSensitive, audit.IssueDuplicate, audit.IssueExtra}
 	typeNames := map[audit.IssueType]string{
 		audit.IssueEmpty:     "Empty Values",
 		audit.IssueMissing:   "Missing Required",
 		audit.IssueSensitive: "Sensitive Keys Detected",
 		audit.IssueDuplicate: "Duplicate Keys",
+		audit.IssueExtra:     "Extra Variables",
 	}
 
 	for _, t := range typeOrder {

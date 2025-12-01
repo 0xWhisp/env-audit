@@ -43,9 +43,24 @@ func Run(args []string, stdout, stderr io.Writer) int {
 		return 0
 	}
 
+	// Handle example file comparison
+	var missing, extra []string
+	if cfg.ExampleFile != "" {
+		exampleResult, err := parser.ParseEnvFile(cfg.ExampleFile)
+		if err != nil {
+			fmt.Fprintln(stderr, "Error:", err)
+			return 2
+		}
+		compareResult := parser.Compare(env, exampleResult.Entries)
+		missing = compareResult.Missing
+		extra = compareResult.Extra
+	}
+
 	scanResult := audit.Scan(env, &audit.ScanOptions{
 		Required:   cfg.Required,
 		Duplicates: duplicates,
+		Missing:    missing,
+		Extra:      extra,
 		Strict:     cfg.Strict,
 	})
 
