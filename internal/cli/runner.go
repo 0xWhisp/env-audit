@@ -37,15 +37,21 @@ func Run(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if cfg.DumpMode {
-		fmt.Fprintln(stdout, parser.FormatEnv(env, true))
+		if !cfg.Quiet {
+			fmt.Fprintln(stdout, parser.FormatEnv(env, true))
+		}
 		return 0
 	}
 
 	scanResult := audit.Scan(env, &audit.ScanOptions{
 		Required:   cfg.Required,
 		Duplicates: duplicates,
+		Strict:     cfg.Strict,
 	})
-	fmt.Fprint(stdout, FormatSummary(scanResult))
+
+	if !cfg.Quiet {
+		fmt.Fprint(stdout, FormatSummary(scanResult))
+	}
 
 	if scanResult.HasRisks {
 		return 1

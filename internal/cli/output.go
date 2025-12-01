@@ -1,12 +1,86 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"env-audit/internal/audit"
 )
+
+// Formatter defines the interface for output formatting
+type Formatter interface {
+	Format(result *audit.Result) string
+}
+
+// JSONFormatter outputs results as JSON
+type JSONFormatter struct{}
+
+// jsonIssue represents an issue in JSON output
+type jsonIssue struct {
+	Type    string `json:"type"`
+	Key     string `json:"key"`
+	Message string `json:"message"`
+}
+
+// jsonOutput represents the complete JSON output structure
+type jsonOutput struct {
+	HasRisks bool           `json:"hasRisks"`
+	Issues   []jsonIssue    `json:"issues"`
+	Summary  map[string]int `json:"summary"`
+}
+
+// issueTypeToString converts IssueType to string for JSON
+func issueTypeToString(t audit.IssueType) string {
+	switch t {
+	case audit.IssueEmpty:
+		return "empty"
+	case audit.IssueMissing:
+		return "missing"
+	case audit.IssueSensitive:
+		return "sensitive"
+	case audit.IssueDuplicate:
+		return "duplicate"
+	case audit.IssueLeak:
+		return "leak"
+	case audit.IssueExtra:
+		return "extra"
+	default:
+		return "unknown"
+	}
+}
+
+// Format implements Formatter interface for JSONFormatter
+func (f *JSONFormatter) Format(result *audit.Result) string {
+	output := jsonOutput{
+		HasRisks: false,
+		Issues:   []jsonIssue{},
+		Summary:  make(map[string]int),
+	}
+
+	if result != nil {
+		output.HasRisks = result.HasRisks
+
+		for _, issue := range result.Issues {
+			output.Issues = append(output.Issues, jsonIssue{
+				Type:    issueTypeToString(issue.Type),
+				Key:     issue.Key,
+				Message: issue.Message,
+			})
+		}
+
+		for issueType, count := range result.Summary {
+			output.Summary[issueTypeToString(issueType)] = count
+		}
+	}
+
+	data, err := json.Marshal(output)
+	if err != nil {
+		return `{"hasRisks":false,"issues":[],"summary":{}}`
+	}
+	return string(data)
+}
 
 // FormatSummary produces human-readable output grouped by issue type
 func FormatSummary(result *audit.Result) string {

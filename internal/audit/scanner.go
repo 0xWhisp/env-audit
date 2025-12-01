@@ -16,6 +16,16 @@ type ScanOptions struct {
 	Strict     bool
 }
 
+// IsWarning returns true if the issue type is a warning (not an error)
+func (t IssueType) IsWarning() bool {
+	switch t {
+	case IssueEmpty, IssueDuplicate, IssueExtra:
+		return true
+	default:
+		return false
+	}
+}
+
 // Scan runs all checks and returns aggregated results
 func Scan(env map[string]string, opts *ScanOptions) *Result {
 	if opts == nil {
@@ -48,9 +58,32 @@ func Scan(env map[string]string, opts *ScanOptions) *Result {
 		summary[issue.Type]++
 	}
 
+	// Determine HasRisks based on strict mode
+	hasRisks := hasRiskIssues(issues, opts.Strict)
+
 	return &Result{
 		Issues:   issues,
-		HasRisks: len(issues) > 0,
+		HasRisks: hasRisks,
 		Summary:  summary,
 	}
+}
+
+// hasRiskIssues returns true if there are issues that should cause exit code 1
+// In strict mode, warnings are treated as errors
+func hasRiskIssues(issues []Issue, strict bool) bool {
+	for _, issue := range issues {
+		// Info-level issues (IssueSensitive) never cause risks
+		if issue.Type == IssueSensitive {
+			continue
+		}
+		// Errors always cause risks
+		if !issue.Type.IsWarning() {
+			return true
+		}
+		// Warnings cause risks only in strict mode
+		if strict {
+			return true
+		}
+	}
+	return false
 }

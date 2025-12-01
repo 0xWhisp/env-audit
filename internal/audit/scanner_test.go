@@ -18,8 +18,22 @@ func TestScan_EmptyValues(t *testing.T) {
 	env := map[string]string{"DB_URL": ""}
 	result := Scan(env, nil)
 
+	// Empty values are warnings, not risks (unless strict mode)
+	if result.HasRisks {
+		t.Error("expected no risks for warnings without strict mode")
+	}
+	if len(result.Issues) != 1 || result.Issues[0].Type != IssueEmpty {
+		t.Errorf("expected 1 empty issue, got %v", result.Issues)
+	}
+}
+
+func TestScan_EmptyValues_Strict(t *testing.T) {
+	env := map[string]string{"DB_URL": ""}
+	result := Scan(env, &ScanOptions{Strict: true})
+
+	// In strict mode, warnings become risks
 	if !result.HasRisks {
-		t.Error("expected risks")
+		t.Error("expected risks in strict mode")
 	}
 	if len(result.Issues) != 1 || result.Issues[0].Type != IssueEmpty {
 		t.Errorf("expected 1 empty issue, got %v", result.Issues)
@@ -42,8 +56,9 @@ func TestScan_SensitiveKeys(t *testing.T) {
 	env := map[string]string{"API_SECRET": "hidden"}
 	result := Scan(env, nil)
 
-	if !result.HasRisks {
-		t.Error("expected risks")
+	// Sensitive keys are info-level, never risks
+	if result.HasRisks {
+		t.Error("expected no risks for info-level issues")
 	}
 	if len(result.Issues) != 1 || result.Issues[0].Type != IssueSensitive {
 		t.Errorf("expected 1 sensitive issue, got %v", result.Issues)
@@ -54,8 +69,22 @@ func TestScan_Duplicates(t *testing.T) {
 	env := map[string]string{"FOO": "bar"}
 	result := Scan(env, &ScanOptions{Duplicates: []string{"FOO"}})
 
+	// Duplicates are warnings, not risks (unless strict mode)
+	if result.HasRisks {
+		t.Error("expected no risks for warnings without strict mode")
+	}
+	if len(result.Issues) != 1 || result.Issues[0].Type != IssueDuplicate {
+		t.Errorf("expected 1 duplicate issue, got %v", result.Issues)
+	}
+}
+
+func TestScan_Duplicates_Strict(t *testing.T) {
+	env := map[string]string{"FOO": "bar"}
+	result := Scan(env, &ScanOptions{Duplicates: []string{"FOO"}, Strict: true})
+
+	// In strict mode, warnings become risks
 	if !result.HasRisks {
-		t.Error("expected risks")
+		t.Error("expected risks in strict mode")
 	}
 	if len(result.Issues) != 1 || result.Issues[0].Type != IssueDuplicate {
 		t.Errorf("expected 1 duplicate issue, got %v", result.Issues)

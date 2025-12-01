@@ -32,6 +32,26 @@ func TestParseArgs_ValidArgs(t *testing.T) {
 			expected: Config{DumpMode: true},
 		},
 		{
+			name:     "json flag",
+			args:     []string{"--json"},
+			expected: Config{JSONOutput: true},
+		},
+		{
+			name:     "quiet flag long",
+			args:     []string{"--quiet"},
+			expected: Config{Quiet: true},
+		},
+		{
+			name:     "quiet flag short",
+			args:     []string{"-q"},
+			expected: Config{Quiet: true},
+		},
+		{
+			name:     "strict flag",
+			args:     []string{"--strict"},
+			expected: Config{Strict: true},
+		},
+		{
 			name:     "file flag long",
 			args:     []string{"--file", ".env"},
 			expected: Config{FilePath: ".env"},
@@ -74,6 +94,15 @@ func TestParseArgs_ValidArgs(t *testing.T) {
 			}
 			if cfg.DumpMode != tt.expected.DumpMode {
 				t.Errorf("DumpMode: got %v, want %v", cfg.DumpMode, tt.expected.DumpMode)
+			}
+			if cfg.JSONOutput != tt.expected.JSONOutput {
+				t.Errorf("JSONOutput: got %v, want %v", cfg.JSONOutput, tt.expected.JSONOutput)
+			}
+			if cfg.Quiet != tt.expected.Quiet {
+				t.Errorf("Quiet: got %v, want %v", cfg.Quiet, tt.expected.Quiet)
+			}
+			if cfg.Strict != tt.expected.Strict {
+				t.Errorf("Strict: got %v, want %v", cfg.Strict, tt.expected.Strict)
 			}
 			if cfg.FilePath != tt.expected.FilePath {
 				t.Errorf("FilePath: got %v, want %v", cfg.FilePath, tt.expected.FilePath)
