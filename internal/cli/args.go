@@ -11,6 +11,7 @@ type Config struct {
 	JSONOutput  bool     // --json output results as JSON
 	Quiet       bool     // --quiet/-q suppress stdout output
 	Strict      bool     // --strict treat warnings as errors
+	CheckLeaks  bool     // --check-leaks analyze values for secret patterns
 	Help        bool     // --help show usage
 }
 
@@ -31,6 +32,8 @@ func ParseArgs(args []string) (*Config, error) {
 			cfg.Quiet = true
 		case "--strict":
 			cfg.Strict = true
+		case "--check-leaks":
+			cfg.CheckLeaks = true
 		case "--file", "-f":
 			if i+1 >= len(args) {
 				return nil, fmt.Errorf("missing value for %s", arg)

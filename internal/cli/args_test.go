@@ -52,6 +52,11 @@ func TestParseArgs_ValidArgs(t *testing.T) {
 			expected: Config{Strict: true},
 		},
 		{
+			name:     "check-leaks flag",
+			args:     []string{"--check-leaks"},
+			expected: Config{CheckLeaks: true},
+		},
+		{
 			name:     "file flag long",
 			args:     []string{"--file", ".env"},
 			expected: Config{FilePath: ".env"},
@@ -103,6 +108,9 @@ func TestParseArgs_ValidArgs(t *testing.T) {
 			}
 			if cfg.Strict != tt.expected.Strict {
 				t.Errorf("Strict: got %v, want %v", cfg.Strict, tt.expected.Strict)
+			}
+			if cfg.CheckLeaks != tt.expected.CheckLeaks {
+				t.Errorf("CheckLeaks: got %v, want %v", cfg.CheckLeaks, tt.expected.CheckLeaks)
 			}
 			if cfg.FilePath != tt.expected.FilePath {
 				t.Errorf("FilePath: got %v, want %v", cfg.FilePath, tt.expected.FilePath)

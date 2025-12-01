@@ -60,3 +60,41 @@ func IsHighEntropy(value string) bool {
 	}
 	return CalculateEntropy(value) > 4.5
 }
+
+// CheckLeaks analyzes values for secret patterns and high entropy
+func CheckLeaks(env map[string]string, ignore []string) []Issue {
+	ignoreSet := make(map[string]bool)
+	for _, k := range ignore {
+		ignoreSet[k] = true
+	}
+
+	var issues []Issue
+	for key, value := range env {
+		if ignoreSet[key] {
+			continue
+		}
+		if value == "" {
+			continue
+		}
+
+		// Check known patterns first
+		if matched, patternName := MatchesLeakPattern(value); matched {
+			issues = append(issues, Issue{
+				Type:    IssueLeak,
+				Key:     key,
+				Message: "potential " + patternName + " detected",
+			})
+			continue
+		}
+
+		// Check high entropy
+		if IsHighEntropy(value) {
+			issues = append(issues, Issue{
+				Type:    IssueLeak,
+				Key:     key,
+				Message: "potential secret detected (high entropy)",
+			})
+		}
+	}
+	return issues
+}
