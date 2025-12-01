@@ -1,4 +1,4 @@
-package main
+package audit
 
 import "strings"
 
@@ -10,6 +10,8 @@ const (
 	IssueMissing
 	IssueSensitive
 	IssueDuplicate
+	IssueLeak
+	IssueExtra
 )
 
 // Issue represents a single audit finding
@@ -20,9 +22,13 @@ type Issue struct {
 }
 
 // CheckEmpty finds variables with empty values
-func CheckEmpty(env map[string]string) []Issue {
+func CheckEmpty(env map[string]string, ignore []string) []Issue {
+	ignoreSet := toSet(ignore)
 	var issues []Issue
 	for key, value := range env {
+		if ignoreSet[key] {
+			continue
+		}
 		if value == "" {
 			issues = append(issues, Issue{
 				Type:    IssueEmpty,
@@ -35,11 +41,12 @@ func CheckEmpty(env map[string]string) []Issue {
 }
 
 // CheckMissing finds required variables not present
-func CheckMissing(env map[string]string, required []string) []Issue {
+func CheckMissing(env map[string]string, required, ignore []string) []Issue {
+	ignoreSet := toSet(ignore)
 	var issues []Issue
 	seen := make(map[string]bool)
 	for _, key := range required {
-		if seen[key] {
+		if seen[key] || ignoreSet[key] {
 			continue
 		}
 		seen[key] = true
@@ -54,10 +61,15 @@ func CheckMissing(env map[string]string, required []string) []Issue {
 	return issues
 }
 
+
 // CheckSensitive finds keys matching sensitive patterns
-func CheckSensitive(env map[string]string) []Issue {
+func CheckSensitive(env map[string]string, ignore []string) []Issue {
+	ignoreSet := toSet(ignore)
 	var issues []Issue
 	for key := range env {
+		if ignoreSet[key] {
+			continue
+		}
 		if IsSensitiveKey(key) {
 			issues = append(issues, Issue{
 				Type:    IssueSensitive,
@@ -88,4 +100,13 @@ func IsSensitiveKey(key string) bool {
 	}
 
 	return false
+}
+
+// toSet converts a slice to a map for O(1) lookups
+func toSet(slice []string) map[string]bool {
+	set := make(map[string]bool)
+	for _, s := range slice {
+		set[s] = true
+	}
+	return set
 }

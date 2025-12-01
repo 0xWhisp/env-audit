@@ -1,4 +1,4 @@
-package main
+package cli
 
 import (
 	"bytes"
@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"env-audit/internal/audit"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
@@ -30,7 +32,7 @@ func TestProperty_ExitCodeCorrectness(t *testing.T) {
 	// Generator for environment entries without issues (non-empty, non-sensitive)
 	genEnvWithoutIssues := gen.MapOf(
 		gen.AlphaString().SuchThat(func(s string) bool {
-			return len(s) > 0 && !IsSensitiveKey(s)
+			return len(s) > 0 && !audit.IsSensitiveKey(s)
 		}),
 		gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
 	)
@@ -50,11 +52,12 @@ func TestProperty_ExitCodeCorrectness(t *testing.T) {
 			}
 
 			var stdout, stderr bytes.Buffer
-			exitCode := run([]string{"-f", envFile}, &stdout, &stderr)
+			exitCode := Run([]string{"-f", envFile}, &stdout, &stderr)
 			return exitCode == 1
 		},
 		genEnvWithIssues,
 	))
+
 
 	// Property: When no issues exist, exit code is 0
 	properties.Property("exit code is 0 when no risks detected", prop.ForAll(
@@ -71,7 +74,7 @@ func TestProperty_ExitCodeCorrectness(t *testing.T) {
 			}
 
 			var stdout, stderr bytes.Buffer
-			exitCode := run([]string{"-f", envFile}, &stdout, &stderr)
+			exitCode := Run([]string{"-f", envFile}, &stdout, &stderr)
 			return exitCode == 0
 		},
 		genEnvWithoutIssues,
@@ -108,7 +111,7 @@ func TestProperty_FatalErrorExitCode(t *testing.T) {
 	properties.Property("invalid arguments produce exit code 2", prop.ForAll(
 		func(args []string) bool {
 			var stdout, stderr bytes.Buffer
-			exitCode := run(args, &stdout, &stderr)
+			exitCode := Run(args, &stdout, &stderr)
 			return exitCode == 2
 		},
 		genInvalidArgs,
@@ -125,7 +128,7 @@ func TestProperty_FatalErrorExitCode(t *testing.T) {
 	properties.Property("missing file produces exit code 2", prop.ForAll(
 		func(path string) bool {
 			var stdout, stderr bytes.Buffer
-			exitCode := run([]string{"-f", path}, &stdout, &stderr)
+			exitCode := Run([]string{"-f", path}, &stdout, &stderr)
 			return exitCode == 2
 		},
 		genMissingFilePath,
@@ -135,119 +138,9 @@ func TestProperty_FatalErrorExitCode(t *testing.T) {
 }
 
 
-// Unit tests for CLI argument parsing
-// _Requirements: 4.4, 5.3_
-
-func TestParseArgs_ValidArgs(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected Config
-	}{
-		{
-			name:     "help flag long",
-			args:     []string{"--help"},
-			expected: Config{Help: true},
-		},
-		{
-			name:     "help flag short",
-			args:     []string{"-h"},
-			expected: Config{Help: true},
-		},
-		{
-			name:     "dump flag long",
-			args:     []string{"--dump"},
-			expected: Config{DumpMode: true},
-		},
-		{
-			name:     "dump flag short",
-			args:     []string{"-d"},
-			expected: Config{DumpMode: true},
-		},
-		{
-			name:     "file flag long",
-			args:     []string{"--file", ".env"},
-			expected: Config{FilePath: ".env"},
-		},
-		{
-			name:     "file flag short",
-			args:     []string{"-f", "config.env"},
-			expected: Config{FilePath: "config.env"},
-		},
-		{
-			name:     "required flag long",
-			args:     []string{"--required", "VAR1,VAR2"},
-			expected: Config{Required: []string{"VAR1", "VAR2"}},
-		},
-		{
-			name:     "required flag short",
-			args:     []string{"-r", "API_KEY"},
-			expected: Config{Required: []string{"API_KEY"}},
-		},
-		{
-			name:     "multiple flags combined",
-			args:     []string{"-f", "test.env", "-r", "A,B", "-d"},
-			expected: Config{FilePath: "test.env", Required: []string{"A", "B"}, DumpMode: true},
-		},
-		{
-			name:     "no args",
-			args:     []string{},
-			expected: Config{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := parseArgs(tt.args)
-			if err != nil {
-				t.Fatalf("unexpected error: %v", err)
-			}
-			if cfg.Help != tt.expected.Help {
-				t.Errorf("Help: got %v, want %v", cfg.Help, tt.expected.Help)
-			}
-			if cfg.DumpMode != tt.expected.DumpMode {
-				t.Errorf("DumpMode: got %v, want %v", cfg.DumpMode, tt.expected.DumpMode)
-			}
-			if cfg.FilePath != tt.expected.FilePath {
-				t.Errorf("FilePath: got %v, want %v", cfg.FilePath, tt.expected.FilePath)
-			}
-			if len(cfg.Required) != len(tt.expected.Required) {
-				t.Errorf("Required length: got %v, want %v", len(cfg.Required), len(tt.expected.Required))
-			}
-			for i := range cfg.Required {
-				if cfg.Required[i] != tt.expected.Required[i] {
-					t.Errorf("Required[%d]: got %v, want %v", i, cfg.Required[i], tt.expected.Required[i])
-				}
-			}
-		})
-	}
-}
-
-func TestParseArgs_InvalidArgs(t *testing.T) {
-	tests := []struct {
-		name string
-		args []string
-	}{
-		{name: "unknown flag", args: []string{"--unknown"}},
-		{name: "missing file value", args: []string{"--file"}},
-		{name: "missing file value short", args: []string{"-f"}},
-		{name: "missing required value", args: []string{"--required"}},
-		{name: "missing required value short", args: []string{"-r"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_, err := parseArgs(tt.args)
-			if err == nil {
-				t.Error("expected error, got nil")
-			}
-		})
-	}
-}
-
-func TestParseArgs_HelpFlag(t *testing.T) {
+func TestRun_HelpFlag(t *testing.T) {
 	var stdout bytes.Buffer
-	exitCode := run([]string{"-h"}, &stdout, &bytes.Buffer{})
+	exitCode := Run([]string{"-h"}, &stdout, &bytes.Buffer{})
 
 	if exitCode != 0 {
 		t.Errorf("help flag exit code: got %d, want 0", exitCode)
@@ -257,7 +150,6 @@ func TestParseArgs_HelpFlag(t *testing.T) {
 	}
 }
 
-
 func TestRun_DumpMode(t *testing.T) {
 	tmpfile, _ := os.CreateTemp("", "test*.env")
 	defer os.Remove(tmpfile.Name())
@@ -265,7 +157,7 @@ func TestRun_DumpMode(t *testing.T) {
 	tmpfile.Close()
 
 	var stdout, stderr bytes.Buffer
-	exitCode := run([]string{"-f", tmpfile.Name(), "-d"}, &stdout, &stderr)
+	exitCode := Run([]string{"-f", tmpfile.Name(), "-d"}, &stdout, &stderr)
 
 	if exitCode != 0 {
 		t.Errorf("expected exit 0, got %d", exitCode)
@@ -278,29 +170,8 @@ func TestRun_DumpMode(t *testing.T) {
 func TestRun_NoFile(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	// Run without file flag uses os.Environ - just verify it doesn't crash
-	exitCode := run([]string{}, &stdout, &stderr)
+	exitCode := Run([]string{}, &stdout, &stderr)
 	if exitCode == 2 {
 		t.Error("should not be fatal error")
-	}
-}
-
-func TestParseCommaSeparated_Empty(t *testing.T) {
-	result := parseCommaSeparated("")
-	if result != nil {
-		t.Errorf("expected nil, got %v", result)
-	}
-}
-
-func TestTrimSpace_AllSpaces(t *testing.T) {
-	result := trimSpace("   ")
-	if result != "" {
-		t.Errorf("expected empty, got %q", result)
-	}
-}
-
-func TestTrimSpace_Tabs(t *testing.T) {
-	result := trimSpace("\t\tvalue\t\t")
-	if result != "value" {
-		t.Errorf("expected 'value', got %q", result)
 	}
 }

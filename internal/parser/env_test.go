@@ -1,16 +1,18 @@
-package main
+package parser
 
 import (
 	"os"
 	"strings"
 	"testing"
 
+	"env-audit/internal/audit"
+
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
 	"github.com/leanovate/gopter/prop"
 )
 
-// Unit tests for parser.go edge cases
+// Unit tests for parser edge cases
 // Requirements: 3.2, 3.3
 
 func TestParseEnvFile_EmptyFile(t *testing.T) {
@@ -54,6 +56,7 @@ func TestParseEnvFile_CommentsOnly(t *testing.T) {
 		t.Errorf("expected 0 entries, got %d", len(result.Entries))
 	}
 }
+
 
 func TestParseEnvFile_MalformedLines(t *testing.T) {
 	tmpfile, err := os.CreateTemp("", "test*.env")
@@ -129,6 +132,7 @@ func TestParseEnvFile_FileNotFound(t *testing.T) {
 		t.Error("expected error for nonexistent file")
 	}
 }
+
 
 // **Feature: env-audit, Property 6: Duplicate key detection**
 // **Validates: Requirements 3.4**
@@ -231,7 +235,7 @@ func TestProperty_ParsingRoundTrip(t *testing.T) {
 			return false
 		}
 		// Exclude sensitive keys to avoid redaction affecting round-trip
-		return !IsSensitiveKey(s)
+		return !audit.IsSensitiveKey(s)
 	})
 
 	// Generator for safe values (no newlines, no quotes that would affect parsing)
@@ -245,7 +249,7 @@ func TestProperty_ParsingRoundTrip(t *testing.T) {
 	properties.Property("parse then format then parse yields same map", prop.ForAll(
 		func(original map[string]string) bool {
 			// Format the original map
-			formatted := FormatConfig(original)
+			formatted := FormatEnv(original, false)
 
 			// Write to temp file
 			tmpfile, err := os.CreateTemp("", "test*.env")
@@ -285,10 +289,9 @@ func TestProperty_ParsingRoundTrip(t *testing.T) {
 	properties.TestingRun(t)
 }
 
-
 // **Feature: env-audit, Property 4: Sensitive value redaction**
 // **Validates: Requirements 2.2, 2.3, 8.2**
-// For any environment map containing sensitive keys, FormatConfig output SHALL NOT
+// For any environment map containing sensitive keys, FormatEnv output SHALL NOT
 // contain the actual values of sensitive keys, and SHALL contain "[REDACTED]" for
 // each sensitive key.
 func TestProperty_SensitiveValueRedaction(t *testing.T) {
@@ -316,10 +319,10 @@ func TestProperty_SensitiveValueRedaction(t *testing.T) {
 
 	properties.Property("sensitive values are never in output and [REDACTED] appears", prop.ForAll(
 		func(env map[string]string) bool {
-			output := FormatConfig(env)
+			output := FormatEnv(env, true)
 
 			for key, value := range env {
-				if IsSensitiveKey(key) {
+				if audit.IsSensitiveKey(key) {
 					// Value should NOT appear in output (only check if value is long enough to be meaningful)
 					if strings.Contains(output, value) {
 						return false

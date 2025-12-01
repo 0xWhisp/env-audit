@@ -1,9 +1,11 @@
-package main
+package parser
 
 import (
 	"bufio"
 	"os"
 	"strings"
+
+	"env-audit/internal/audit"
 )
 
 // ParseResult contains parsed entries and any issues found
@@ -66,6 +68,7 @@ func ParseEnvFile(path string) (*ParseResult, error) {
 	return result, nil
 }
 
+
 // unquote removes surrounding quotes from a value
 func unquote(s string) string {
 	if len(s) >= 2 {
@@ -76,11 +79,11 @@ func unquote(s string) string {
 	return s
 }
 
-// FormatConfig outputs config as KEY=VALUE lines with redaction
-func FormatConfig(entries map[string]string) string {
+// FormatEnv outputs config as KEY=VALUE lines with optional redaction
+func FormatEnv(entries map[string]string, redact bool) string {
 	var lines []string
 	for key, value := range entries {
-		if IsSensitiveKey(key) {
+		if redact && audit.IsSensitiveKey(key) {
 			lines = append(lines, key+"=[REDACTED]")
 		} else {
 			lines = append(lines, key+"="+value)

@@ -1,4 +1,4 @@
-package main
+package audit
 
 import (
 	"strings"
@@ -55,6 +55,7 @@ func TestProperty_SensitiveKeyPatternMatching(t *testing.T) {
 		return clean + "key"
 	})
 
+
 	// Property: Keys ending with KEY suffix should be detected
 	properties.Property("keys with KEY suffix are detected", prop.ForAll(
 		func(key string) bool {
@@ -65,7 +66,6 @@ func TestProperty_SensitiveKeyPatternMatching(t *testing.T) {
 
 	properties.TestingRun(t)
 }
-
 
 // **Feature: env-audit, Property 1: Empty value detection completeness**
 // **Validates: Requirements 1.1**
@@ -81,7 +81,7 @@ func TestProperty_EmptyValueDetection(t *testing.T) {
 
 	properties.Property("detects all empty values and only empty values", prop.ForAll(
 		func(env map[string]string) bool {
-			issues := CheckEmpty(env)
+			issues := CheckEmpty(env, nil)
 
 			// Count expected empty keys
 			expectedEmpty := make(map[string]bool)
@@ -126,7 +126,7 @@ func TestProperty_MissingRequiredDetection(t *testing.T) {
 
 	properties.Property("detects exactly the missing required keys", prop.ForAll(
 		func(env map[string]string, required []string) bool {
-			issues := CheckMissing(env, required)
+			issues := CheckMissing(env, required, nil)
 
 			// Calculate expected missing keys
 			expectedMissing := make(map[string]bool)
@@ -160,12 +160,11 @@ func TestProperty_MissingRequiredDetection(t *testing.T) {
 	properties.TestingRun(t)
 }
 
-
 // Unit tests for edge cases
 // Requirements: 1.1, 1.2, 2.1
 
 func TestCheckEmpty_EmptyInput(t *testing.T) {
-	issues := CheckEmpty(map[string]string{})
+	issues := CheckEmpty(map[string]string{}, nil)
 	if len(issues) != 0 {
 		t.Errorf("expected 0 issues for empty input, got %d", len(issues))
 	}
@@ -173,17 +172,18 @@ func TestCheckEmpty_EmptyInput(t *testing.T) {
 
 func TestCheckEmpty_SingleEntry(t *testing.T) {
 	// Single empty entry
-	issues := CheckEmpty(map[string]string{"FOO": ""})
+	issues := CheckEmpty(map[string]string{"FOO": ""}, nil)
 	if len(issues) != 1 || issues[0].Key != "FOO" {
 		t.Errorf("expected 1 issue for FOO, got %v", issues)
 	}
 
 	// Single non-empty entry
-	issues = CheckEmpty(map[string]string{"FOO": "bar"})
+	issues = CheckEmpty(map[string]string{"FOO": "bar"}, nil)
 	if len(issues) != 0 {
 		t.Errorf("expected 0 issues for non-empty value, got %d", len(issues))
 	}
 }
+
 
 func TestCheckEmpty_SpecialCharacters(t *testing.T) {
 	env := map[string]string{
@@ -191,21 +191,32 @@ func TestCheckEmpty_SpecialCharacters(t *testing.T) {
 		"VAR.NAME":    "",
 		"VAR@SPECIAL": "value",
 	}
-	issues := CheckEmpty(env)
+	issues := CheckEmpty(env, nil)
 	if len(issues) != 2 {
 		t.Errorf("expected 2 issues, got %d", len(issues))
 	}
 }
 
+func TestCheckEmpty_WithIgnore(t *testing.T) {
+	env := map[string]string{
+		"FOO": "",
+		"BAR": "",
+	}
+	issues := CheckEmpty(env, []string{"FOO"})
+	if len(issues) != 1 || issues[0].Key != "BAR" {
+		t.Errorf("expected 1 issue for BAR, got %v", issues)
+	}
+}
+
 func TestCheckMissing_EmptyInput(t *testing.T) {
 	// Empty env, empty required
-	issues := CheckMissing(map[string]string{}, []string{})
+	issues := CheckMissing(map[string]string{}, []string{}, nil)
 	if len(issues) != 0 {
 		t.Errorf("expected 0 issues, got %d", len(issues))
 	}
 
 	// Empty env, one required
-	issues = CheckMissing(map[string]string{}, []string{"FOO"})
+	issues = CheckMissing(map[string]string{}, []string{"FOO"}, nil)
 	if len(issues) != 1 || issues[0].Key != "FOO" {
 		t.Errorf("expected 1 issue for FOO, got %v", issues)
 	}
@@ -215,13 +226,13 @@ func TestCheckMissing_SingleEntry(t *testing.T) {
 	env := map[string]string{"FOO": "bar"}
 
 	// Required key exists
-	issues := CheckMissing(env, []string{"FOO"})
+	issues := CheckMissing(env, []string{"FOO"}, nil)
 	if len(issues) != 0 {
 		t.Errorf("expected 0 issues when key exists, got %d", len(issues))
 	}
 
 	// Required key missing
-	issues = CheckMissing(env, []string{"BAR"})
+	issues = CheckMissing(env, []string{"BAR"}, nil)
 	if len(issues) != 1 || issues[0].Key != "BAR" {
 		t.Errorf("expected 1 issue for BAR, got %v", issues)
 	}
@@ -229,14 +240,22 @@ func TestCheckMissing_SingleEntry(t *testing.T) {
 
 func TestCheckMissing_SpecialCharacters(t *testing.T) {
 	env := map[string]string{"MY_VAR-1": "val"}
-	issues := CheckMissing(env, []string{"MY_VAR-1", "VAR.NAME"})
+	issues := CheckMissing(env, []string{"MY_VAR-1", "VAR.NAME"}, nil)
 	if len(issues) != 1 || issues[0].Key != "VAR.NAME" {
 		t.Errorf("expected 1 issue for VAR.NAME, got %v", issues)
 	}
 }
 
+func TestCheckMissing_WithIgnore(t *testing.T) {
+	env := map[string]string{}
+	issues := CheckMissing(env, []string{"FOO", "BAR"}, []string{"FOO"})
+	if len(issues) != 1 || issues[0].Key != "BAR" {
+		t.Errorf("expected 1 issue for BAR, got %v", issues)
+	}
+}
+
 func TestCheckSensitive_EmptyInput(t *testing.T) {
-	issues := CheckSensitive(map[string]string{})
+	issues := CheckSensitive(map[string]string{}, nil)
 	if len(issues) != 0 {
 		t.Errorf("expected 0 issues for empty input, got %d", len(issues))
 	}
@@ -244,13 +263,13 @@ func TestCheckSensitive_EmptyInput(t *testing.T) {
 
 func TestCheckSensitive_SingleEntry(t *testing.T) {
 	// Sensitive key
-	issues := CheckSensitive(map[string]string{"API_KEY": "secret"})
+	issues := CheckSensitive(map[string]string{"API_KEY": "secret"}, nil)
 	if len(issues) != 1 || issues[0].Key != "API_KEY" {
 		t.Errorf("expected 1 issue for API_KEY, got %v", issues)
 	}
 
 	// Non-sensitive key
-	issues = CheckSensitive(map[string]string{"APP_NAME": "myapp"})
+	issues = CheckSensitive(map[string]string{"APP_NAME": "myapp"}, nil)
 	if len(issues) != 0 {
 		t.Errorf("expected 0 issues for non-sensitive key, got %d", len(issues))
 	}
@@ -262,9 +281,20 @@ func TestCheckSensitive_SpecialCharacters(t *testing.T) {
 		"VAR.PASSWORD":  "val",
 		"NORMAL@VAR":    "val",
 	}
-	issues := CheckSensitive(env)
+	issues := CheckSensitive(env, nil)
 	if len(issues) != 2 {
 		t.Errorf("expected 2 sensitive issues, got %d", len(issues))
+	}
+}
+
+func TestCheckSensitive_WithIgnore(t *testing.T) {
+	env := map[string]string{
+		"API_KEY":    "secret",
+		"API_SECRET": "hidden",
+	}
+	issues := CheckSensitive(env, []string{"API_KEY"})
+	if len(issues) != 1 || issues[0].Key != "API_SECRET" {
+		t.Errorf("expected 1 issue for API_SECRET, got %v", issues)
 	}
 }
 
@@ -274,16 +304,16 @@ func TestIsSensitiveKey_EdgeCases(t *testing.T) {
 		expected bool
 	}{
 		{"", false},
-		{"KEY", true},           // KEY suffix
-		{"MYKEY", true},         // KEY suffix
-		{"KEYRING", false},      // KEY not as suffix
-		{"secret", true},        // lowercase
-		{"PaSsWoRd", true},      // mixed case
+		{"KEY", true},            // KEY suffix
+		{"MYKEY", true},          // KEY suffix
+		{"KEYRING", false},       // KEY not as suffix
+		{"secret", true},         // lowercase
+		{"PaSsWoRd", true},       // mixed case
 		{"MY_API_KEY_VAR", true}, // API_KEY in middle
-		{"AUTHENTICATE", true},  // contains AUTH
-		{"AUTHOR", true},        // contains AUTH
-		{"PRIVATE_DATA", true},  // contains PRIVATE
-		{"CREDENTIAL_ID", true}, // contains CREDENTIAL
+		{"AUTHENTICATE", true},   // contains AUTH
+		{"AUTHOR", true},         // contains AUTH
+		{"PRIVATE_DATA", true},   // contains PRIVATE
+		{"CREDENTIAL_ID", true},  // contains CREDENTIAL
 	}
 
 	for _, tc := range tests {

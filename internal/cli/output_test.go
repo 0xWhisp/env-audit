@@ -1,9 +1,11 @@
-package main
+package cli
 
 import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"env-audit/internal/audit"
 
 	"github.com/leanovate/gopter"
 	"github.com/leanovate/gopter/gen"
@@ -19,12 +21,12 @@ func TestProperty_SummaryIncludesAllIssues(t *testing.T) {
 	properties := gopter.NewProperties(parameters)
 
 	// Generator for issue type
-	genIssueType := gen.IntRange(0, 3).Map(func(i int) IssueType {
-		return IssueType(i)
+	genIssueType := gen.IntRange(0, 3).Map(func(i int) audit.IssueType {
+		return audit.IssueType(i)
 	})
 
 	// Generator for a single issue with alphanumeric key
-	genIssue := gen.Struct(reflect.TypeOf(Issue{}), map[string]gopter.Gen{
+	genIssue := gen.Struct(reflect.TypeOf(audit.Issue{}), map[string]gopter.Gen{
 		"Type":    genIssueType,
 		"Key":     gen.AlphaString().SuchThat(func(s string) bool { return len(s) > 0 }),
 		"Message": gen.AnyString(),
@@ -34,8 +36,8 @@ func TestProperty_SummaryIncludesAllIssues(t *testing.T) {
 	genIssues := gen.SliceOf(genIssue)
 
 	properties.Property("summary contains all issue keys", prop.ForAll(
-		func(issues []Issue) bool {
-			result := &ScanResult{
+		func(issues []audit.Issue) bool {
+			result := &audit.Result{
 				Issues:   issues,
 				HasRisks: len(issues) > 0,
 			}
@@ -73,7 +75,7 @@ func TestFormatSummary_NilResult(t *testing.T) {
 }
 
 func TestFormatSummary_EmptyIssues(t *testing.T) {
-	result := FormatSummary(&ScanResult{Issues: []Issue{}})
+	result := FormatSummary(&audit.Result{Issues: []audit.Issue{}})
 	if !strings.Contains(result, "No issues found") {
 		t.Error("empty issues should show no issues")
 	}
