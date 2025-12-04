@@ -78,6 +78,11 @@ func Scan(env map[string]string, opts *ScanOptions) *Result {
 		})
 	}
 
+	// Check for leaks if enabled
+	if opts.CheckLeaks {
+		issues = append(issues, CheckLeaks(env, opts.Ignore)...)
+	}
+
 	// Build summary
 	summary := make(map[IssueType]int)
 	for _, issue := range issues {

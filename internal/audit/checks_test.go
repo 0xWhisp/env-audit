@@ -55,7 +55,6 @@ func TestProperty_SensitiveKeyPatternMatching(t *testing.T) {
 		return clean + "key"
 	})
 
-
 	// Property: Keys ending with KEY suffix should be detected
 	properties.Property("keys with KEY suffix are detected", prop.ForAll(
 		func(key string) bool {
@@ -113,7 +112,6 @@ func TestProperty_EmptyValueDetection(t *testing.T) {
 
 	properties.TestingRun(t)
 }
-
 
 // **Feature: env-audit, Property 2: Missing required detection completeness**
 // **Validates: Requirements 1.2**
@@ -183,7 +181,6 @@ func TestCheckEmpty_SingleEntry(t *testing.T) {
 		t.Errorf("expected 0 issues for non-empty value, got %d", len(issues))
 	}
 }
-
 
 func TestCheckEmpty_SpecialCharacters(t *testing.T) {
 	env := map[string]string{
@@ -322,4 +319,108 @@ func TestIsSensitiveKey_EdgeCases(t *testing.T) {
 			t.Errorf("IsSensitiveKey(%q) = %v, want %v", tc.key, got, tc.expected)
 		}
 	}
+}
+
+// **Feature: env-audit-v2, Property 15: Ignore filtering**
+// **Validates: Requirements 13.1, 13.2, 13.3**
+// For any environment map and ignore list, issues SHALL NOT be reported for
+// ignored keys in any check function.
+func TestProperty_IgnoreFiltering(t *testing.T) {
+	parameters := gopter.DefaultTestParameters()
+	parameters.MinSuccessfulTests = 100
+	properties := gopter.NewProperties(parameters)
+
+	// Generator for valid key names
+	genKey := gen.AlphaString().SuchThat(func(s string) bool {
+		return len(s) > 0
+	})
+
+	// Generator for env maps with empty values (to trigger CheckEmpty)
+	genEnvWithEmpty := gen.MapOf(genKey, gen.Const("")).SuchThat(func(m map[string]string) bool {
+		return len(m) > 0
+	})
+
+	properties.Property("CheckEmpty respects ignore list", prop.ForAll(
+		func(env map[string]string) bool {
+			// Get all keys
+			var allKeys []string
+			for k := range env {
+				allKeys = append(allKeys, k)
+			}
+			if len(allKeys) == 0 {
+				return true
+			}
+
+			// Ignore first key
+			ignoreKey := allKeys[0]
+			issues := CheckEmpty(env, []string{ignoreKey})
+
+			// Ignored key should not appear in issues
+			for _, issue := range issues {
+				if issue.Key == ignoreKey {
+					return false
+				}
+			}
+			return true
+		},
+		genEnvWithEmpty,
+	))
+
+	properties.Property("CheckMissing respects ignore list", prop.ForAll(
+		func(required []string) bool {
+			if len(required) == 0 {
+				return true
+			}
+
+			// Empty env, so all required are missing
+			env := map[string]string{}
+
+			// Ignore first required key
+			ignoreKey := required[0]
+			issues := CheckMissing(env, required, []string{ignoreKey})
+
+			// Ignored key should not appear in issues
+			for _, issue := range issues {
+				if issue.Key == ignoreKey {
+					return false
+				}
+			}
+			return true
+		},
+		gen.SliceOf(genKey).SuchThat(func(s []string) bool { return len(s) > 0 }),
+	))
+
+	// Generator for sensitive keys
+	genSensitiveEnv := gen.MapOf(
+		gen.OneConstOf("API_KEY", "SECRET_TOKEN", "DB_PASSWORD", "AUTH_KEY"),
+		gen.AlphaString(),
+	).SuchThat(func(m map[string]string) bool { return len(m) > 0 })
+
+	properties.Property("CheckSensitive respects ignore list", prop.ForAll(
+		func(env map[string]string) bool {
+			// Get all keys
+			var allKeys []string
+			for k := range env {
+				allKeys = append(allKeys, k)
+			}
+			if len(allKeys) == 0 {
+				return true
+			}
+
+			// Ignore first key
+			ignoreKey := allKeys[0]
+			issues := CheckSensitive(env, []string{ignoreKey})
+
+			// Ignored key should not appear in issues
+			for _, issue := range issues {
+				if issue.Key == ignoreKey {
+					return false
+				}
+			}
+			return true
+		},
+		genSensitiveEnv,
+	))
+
+	properties.TestingRun(t)
 }
