@@ -57,6 +57,21 @@ func TestParseArgs_ValidArgs(t *testing.T) {
 			expected: Config{CheckLeaks: true},
 		},
 		{
+			name:     "init flag",
+			args:     []string{"--init"},
+			expected: Config{Init: true},
+		},
+		{
+			name:     "force flag",
+			args:     []string{"--force"},
+			expected: Config{Force: true},
+		},
+		{
+			name:     "init with force",
+			args:     []string{"--init", "--force"},
+			expected: Config{Init: true, Force: true},
+		},
+		{
 			name:     "file flag long",
 			args:     []string{"--file", ".env"},
 			expected: Config{FilePath: ".env"},
@@ -86,6 +101,16 @@ func TestParseArgs_ValidArgs(t *testing.T) {
 			args:     []string{},
 			expected: Config{},
 		},
+		{
+			name:     "diff flag",
+			args:     []string{"--diff", "other.env"},
+			expected: Config{DiffFile: "other.env"},
+		},
+		{
+			name:     "diff with file",
+			args:     []string{"-f", ".env", "--diff", "prod.env"},
+			expected: Config{FilePath: ".env", DiffFile: "prod.env"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -112,8 +137,17 @@ func TestParseArgs_ValidArgs(t *testing.T) {
 			if cfg.CheckLeaks != tt.expected.CheckLeaks {
 				t.Errorf("CheckLeaks: got %v, want %v", cfg.CheckLeaks, tt.expected.CheckLeaks)
 			}
+			if cfg.Init != tt.expected.Init {
+				t.Errorf("Init: got %v, want %v", cfg.Init, tt.expected.Init)
+			}
+			if cfg.Force != tt.expected.Force {
+				t.Errorf("Force: got %v, want %v", cfg.Force, tt.expected.Force)
+			}
 			if cfg.FilePath != tt.expected.FilePath {
 				t.Errorf("FilePath: got %v, want %v", cfg.FilePath, tt.expected.FilePath)
+			}
+			if cfg.DiffFile != tt.expected.DiffFile {
+				t.Errorf("DiffFile: got %v, want %v", cfg.DiffFile, tt.expected.DiffFile)
 			}
 			if len(cfg.Required) != len(tt.expected.Required) {
 				t.Errorf("Required length: got %v, want %v", len(cfg.Required), len(tt.expected.Required))
@@ -138,6 +172,7 @@ func TestParseArgs_InvalidArgs(t *testing.T) {
 		{name: "missing file value short", args: []string{"-f"}},
 		{name: "missing required value", args: []string{"--required"}},
 		{name: "missing required value short", args: []string{"-r"}},
+		{name: "missing diff value", args: []string{"--diff"}},
 	}
 
 	for _, tt := range tests {
