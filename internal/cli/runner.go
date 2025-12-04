@@ -132,7 +132,7 @@ func Run(args []string, stdout, stderr io.Writer) int {
 			output = FormatSummary(scanResult)
 		}
 		if output != "" {
-			fmt.Fprintln(stdout, output)
+			fmt.Fprint(stdout, output)
 		}
 	}
 
@@ -234,7 +234,7 @@ func runAudit(cfg *Config, stdout, stderr io.Writer) int {
 			output = FormatSummary(scanResult)
 		}
 		if output != "" {
-			fmt.Fprintln(stdout, output)
+			fmt.Fprint(stdout, output)
 		}
 	}
 
@@ -289,7 +289,7 @@ func runDiff(file1, file2 string, quiet bool, stdout, stderr io.Writer) int {
 	if !quiet {
 		output := parser.FormatDiff(diffResult, true)
 		if output != "" {
-			fmt.Fprintln(stdout, output)
+			fmt.Fprint(stdout, output)
 		}
 	}
 
